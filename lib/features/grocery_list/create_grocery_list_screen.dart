@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'workspace/grocery_list_workspace_screen.dart';
 
 class CreateGroceryListScreen extends StatefulWidget {
   const CreateGroceryListScreen({super.key});
@@ -47,6 +48,30 @@ class _CreateGroceryListScreenState extends State<CreateGroceryListScreen> {
   }
 
   // 4️⃣ HELPER WIDGETS (PUT CODE HERE ⬇⬇⬇)
+
+  void _handleCreate() {
+    final name = _nameController.text.trim();
+
+    if (name.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Please enter a list name'),
+        ),
+      );
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => GroceryListWorkspaceScreen(
+          listName: name,
+          shoppingDate: _selectedDate,
+          importFromPrevious: _importFromPrevious,
+        ),
+      ),
+    );
+  }
 
   Widget _buildNameField() {
     return TextField(
@@ -120,14 +145,12 @@ class _CreateGroceryListScreenState extends State<CreateGroceryListScreen> {
   }
 
   Widget _buildCreateButton() {
-    return SizedBox(
-      width: double.infinity,
-      child: ElevatedButton(
-        onPressed: () {
-          // next step
-        },
-        child: const Text('Create List'),
-      ),
-    );
-  }
+  return SizedBox(
+    width: double.infinity,
+    child: ElevatedButton(
+      onPressed: _handleCreate,
+      child: const Text('Create List'),
+    ),
+  );
+}
 }
