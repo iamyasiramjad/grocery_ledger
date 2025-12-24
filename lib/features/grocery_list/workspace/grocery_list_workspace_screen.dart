@@ -1,9 +1,8 @@
 import 'package:flutter/material.dart';
-import 'add_item_bottom_sheet.dart';
 import '../../../core/utils/static_items.dart';
+import 'add_item_bottom_sheet.dart';
 
-
-class GroceryListWorkspaceScreen extends StatelessWidget {
+class GroceryListWorkspaceScreen extends StatefulWidget {
   final String listName;
   final DateTime shoppingDate;
   final bool importFromPrevious;
@@ -16,10 +15,26 @@ class GroceryListWorkspaceScreen extends StatelessWidget {
   });
 
   @override
+  State<GroceryListWorkspaceScreen> createState() =>
+      _GroceryListWorkspaceScreenState();
+}
+
+/* ============================================================
+   EVERYTHING BELOW THIS LINE IS THE "STATE CLASS"
+   THIS IS WHERE YOU PUT LOGIC + UI
+   ============================================================ */
+
+class _GroceryListWorkspaceScreenState
+    extends State<GroceryListWorkspaceScreen> {
+
+  // 🧠 STATE (in-memory)
+  final List<StaticItem> _selectedItems = [];
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(listName),
+        title: Text(widget.listName),
       ),
       body: Column(
         children: [
@@ -35,6 +50,8 @@ class GroceryListWorkspaceScreen extends StatelessWidget {
     );
   }
 
+  /* ===================== UI SECTIONS ===================== */
+
   Widget _buildHeader() {
     return Padding(
       padding: const EdgeInsets.all(16),
@@ -42,11 +59,11 @@ class GroceryListWorkspaceScreen extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Shopping date: ${shoppingDate.year}-${shoppingDate.month.toString().padLeft(2, '0')}-${shoppingDate.day.toString().padLeft(2, '0')}',
+            'Shopping date: ${widget.shoppingDate.year}-${widget.shoppingDate.month.toString().padLeft(2, '0')}-${widget.shoppingDate.day.toString().padLeft(2, '0')}',
           ),
           const SizedBox(height: 4),
           Text(
-            importFromPrevious
+            widget.importFromPrevious
                 ? 'Started by importing previous month'
                 : 'Started from scratch',
             style: const TextStyle(
@@ -72,30 +89,43 @@ class GroceryListWorkspaceScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildCategorySection(String title) {
+  Widget _buildCategorySection(String category) {
+    final items = _selectedItems
+        .where((item) => item.category == category)
+        .toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          title,
+          category,
           style: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
           ),
         ),
         const SizedBox(height: 8),
-        Container(
-          padding: const EdgeInsets.all(12),
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: Colors.grey.shade100,
-            borderRadius: BorderRadius.circular(8),
+        if (items.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(12),
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: Colors.grey.shade100,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Text(
+              'No items yet',
+              style: TextStyle(color: Colors.grey),
+            ),
+          )
+        else
+          Column(
+            children: items.map((item) {
+              return ListTile(
+                title: Text(item.name),
+              );
+            }).toList(),
           ),
-          child: const Text(
-            'No items yet',
-            style: TextStyle(color: Colors.grey),
-          ),
-        ),
       ],
     );
   }
@@ -109,12 +139,14 @@ class GroceryListWorkspaceScreen extends StatelessWidget {
           builder: (_) {
             return AddItemBottomSheet(
               onItemSelected: (item) {
-                // TEMP: confirm selection
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text('${item.name} selected'),
-                  ),
-                );
+                setState(() {
+                  final exists = _selectedItems.any(
+                    (e) => e.name == item.name,
+                  );
+                  if (!exists) {
+                    _selectedItems.add(item);
+                  }
+                });
               },
             );
           },
@@ -125,30 +157,20 @@ class GroceryListWorkspaceScreen extends StatelessWidget {
     );
   }
 
-
-
   Widget _buildBottomBar() {
     return Container(
       padding: const EdgeInsets.all(16),
       color: Colors.grey.shade50,
-      child: Row(
+      child: const Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: const [
-          Text(
-            'Total',
-            style: TextStyle(fontSize: 16),
-          ),
+        children: [
+          Text('Total'),
           Text(
             'Rs. 0',
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-            ),
+            style: TextStyle(fontWeight: FontWeight.bold),
           ),
         ],
       ),
     );
   }
-
-
 }
