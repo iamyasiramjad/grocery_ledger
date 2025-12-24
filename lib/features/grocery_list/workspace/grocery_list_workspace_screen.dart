@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'add_item_bottom_sheet.dart';
+import '../../../core/utils/static_items.dart';
+
 
 class GroceryListWorkspaceScreen extends StatelessWidget {
   final String listName;
@@ -23,7 +26,7 @@ class GroceryListWorkspaceScreen extends StatelessWidget {
           _buildHeader(),
           const Divider(height: 1),
           Expanded(
-            child: _buildItemsArea(),
+            child: _buildItemsArea(context),
           ),
           const Divider(height: 1),
           _buildBottomBar(),
@@ -56,7 +59,7 @@ class GroceryListWorkspaceScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildItemsArea() {
+  Widget _buildItemsArea(BuildContext context) {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
@@ -64,7 +67,7 @@ class GroceryListWorkspaceScreen extends StatelessWidget {
         const SizedBox(height: 16),
         _buildCategorySection('Food'),
         const SizedBox(height: 16),
-        _buildAddItemButton(),
+        _buildAddItemButton(context),
       ],
     );
   }
@@ -97,15 +100,31 @@ class GroceryListWorkspaceScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildAddItemButton() {
+  Widget _buildAddItemButton(BuildContext context) {
     return TextButton.icon(
       onPressed: () {
-        // Next step: open add item flow
+        showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          builder: (_) {
+            return AddItemBottomSheet(
+              onItemSelected: (item) {
+                // TEMP: confirm selection
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('${item.name} selected'),
+                  ),
+                );
+              },
+            );
+          },
+        );
       },
       icon: const Icon(Icons.add),
       label: const Text('Add Item'),
     );
   }
+
 
 
   Widget _buildBottomBar() {
