@@ -177,35 +177,93 @@ class _GroceryListWorkspaceScreenState
   }
 
   Widget _buildItemRow(ListEntry entry) {
-    return ListTile(
-      title: Text(entry.item.name),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          IconButton(
-            icon: const Icon(Icons.remove),
-            onPressed: entry.quantity > 1
-                ? () {
-                    setState(() {
-                      entry.quantity--;
-                    });
-                  }
-                : null,
-          ),
-          Text(
-            entry.quantity.toString(),
-            style: const TextStyle(fontSize: 16),
-          ),
-          IconButton(
-            icon: const Icon(Icons.add),
-            onPressed: () {
-              setState(() {
-                entry.quantity++;
-              });
-            },
-          ),
-        ],
+    return Card(
+      margin: const EdgeInsets.symmetric(vertical: 4),
+      child: Padding(
+        padding: const EdgeInsets.all(8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              entry.item.name,
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                _buildQuantityControls(entry),
+                const Spacer(),
+                _buildPriceInput(entry),
+              ],
+            ),
+            if (entry.hasPrice)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  'Total: Rs. ${entry.calculatedTotal.toStringAsFixed(0)}',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
+
+  Widget _buildQuantityControls(ListEntry entry) {
+    return Row(
+      children: [
+        IconButton(
+          icon: const Icon(Icons.remove),
+          onPressed: entry.quantity > 1
+              ? () {
+                  setState(() {
+                    entry.quantity--;
+                  });
+                }
+              : null,
+        ),
+        Text(entry.quantity.toString()),
+        IconButton(
+          icon: const Icon(Icons.add),
+          onPressed: () {
+            setState(() {
+              entry.quantity++;
+            });
+          },
+        ),
+      ],
+    );
+  }
+
+
+  Widget _buildPriceInput(ListEntry entry) {
+    final controller = TextEditingController(
+      text: entry.unitPrice?.toStringAsFixed(0),
+    );
+
+    return SizedBox(
+      width: 120,
+      child: TextField(
+        controller: controller,
+        keyboardType: TextInputType.number,
+        decoration: const InputDecoration(
+          labelText: 'Unit Rs.',
+          border: OutlineInputBorder(),
+          isDense: true,
+        ),
+        onSubmitted: (value) {
+          final price = double.tryParse(value);
+          if (price != null) {
+            setState(() {
+              entry.unitPrice = price;
+              entry.totalPrice = null;
+            });
+          }
+        },
+      ),
+    );
+  }
+
+
 }
