@@ -138,13 +138,15 @@ class _GroceryListWorkspaceScreenState
           isScrollControlled: true,
           builder: (_) {
             return AddItemBottomSheet(
-              onItemSelected: (item) {
+              onItemsSelected: (items) {
                 setState(() {
-                  final exists = _selectedItems.any(
-                    (e) => e.name == item.name,
-                  );
-                  if (!exists) {
-                    _selectedItems.add(item);
+                  for (final item in items) {
+                    final exists = _selectedItems.any(
+                      (e) => e.name == item.name,
+                    );
+                    if (!exists) {
+                      _selectedItems.add(item);
+                    }
                   }
                 });
               },
