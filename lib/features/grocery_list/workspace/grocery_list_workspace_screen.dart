@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../../../core/utils/static_items.dart';
 import 'add_item_bottom_sheet.dart';
+import '../models/list_entry.dart';
 
 class GroceryListWorkspaceScreen extends StatefulWidget {
   final String listName;
@@ -28,7 +29,7 @@ class _GroceryListWorkspaceScreenState
     extends State<GroceryListWorkspaceScreen> {
 
   // 🧠 STATE (in-memory)
-  final List<StaticItem> _selectedItems = [];
+  final List<ListEntry> _entries = [];
 
   @override
   Widget build(BuildContext context) {
@@ -90,8 +91,8 @@ class _GroceryListWorkspaceScreenState
   }
 
   Widget _buildCategorySection(String category) {
-    final items = _selectedItems
-        .where((item) => item.category == category)
+    final entries = _entries
+        .where((entry) => entry.item.category == category)
         .toList();
 
     return Column(
@@ -105,7 +106,7 @@ class _GroceryListWorkspaceScreenState
           ),
         ),
         const SizedBox(height: 8),
-        if (items.isEmpty)
+        if (entries.isEmpty)
           Container(
             padding: const EdgeInsets.all(12),
             width: double.infinity,
@@ -120,15 +121,14 @@ class _GroceryListWorkspaceScreenState
           )
         else
           Column(
-            children: items.map((item) {
-              return ListTile(
-                title: Text(item.name),
-              );
+            children: entries.map((entry) {
+              return _buildItemRow(entry);
             }).toList(),
           ),
       ],
     );
   }
+
 
   Widget _buildAddItemButton(BuildContext context) {
     return TextButton.icon(
@@ -141,11 +141,11 @@ class _GroceryListWorkspaceScreenState
               onItemsSelected: (items) {
                 setState(() {
                   for (final item in items) {
-                    final exists = _selectedItems.any(
-                      (e) => e.name == item.name,
+                    final exists = _entries.any(
+                      (entry) => entry.item.name == item.name,
                     );
                     if (!exists) {
-                      _selectedItems.add(item);
+                      _entries.add(ListEntry(item: item));
                     }
                   }
                 });
@@ -170,6 +170,39 @@ class _GroceryListWorkspaceScreenState
           Text(
             'Rs. 0',
             style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildItemRow(ListEntry entry) {
+    return ListTile(
+      title: Text(entry.item.name),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          IconButton(
+            icon: const Icon(Icons.remove),
+            onPressed: entry.quantity > 1
+                ? () {
+                    setState(() {
+                      entry.quantity--;
+                    });
+                  }
+                : null,
+          ),
+          Text(
+            entry.quantity.toString(),
+            style: const TextStyle(fontSize: 16),
+          ),
+          IconButton(
+            icon: const Icon(Icons.add),
+            onPressed: () {
+              setState(() {
+                entry.quantity++;
+              });
+            },
           ),
         ],
       ),
