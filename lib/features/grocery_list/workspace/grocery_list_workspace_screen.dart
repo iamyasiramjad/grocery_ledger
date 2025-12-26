@@ -30,6 +30,17 @@ class _GroceryListWorkspaceScreenState
 
   // 🧠 STATE (in-memory)
   final List<ListEntry> _entries = [];
+  double _adjustment = 0; // negative = discount, positive = extra
+
+  double _calculateGrandTotal() {
+    final itemsTotal = _entries.fold<double>(
+      0.0,
+      (sum, entry) => sum + entry.calculatedTotal,
+    );
+
+    return itemsTotal + _adjustment;
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -160,21 +171,71 @@ class _GroceryListWorkspaceScreenState
   }
 
   Widget _buildBottomBar() {
+    final itemsTotal = _entries.fold<double>(
+      0.0,
+      (sum, entry) => sum + entry.calculatedTotal,
+    );
+
+    final grandTotal = itemsTotal + _adjustment;
+
     return Container(
       padding: const EdgeInsets.all(16),
       color: Colors.grey.shade50,
-      child: const Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Text('Total'),
-          Text(
-            'Rs. 0',
-            style: TextStyle(fontWeight: FontWeight.bold),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Subtotal'),
+              Text('Rs. ${itemsTotal.toStringAsFixed(0)}'),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              const Expanded(child: Text('Adjustment')),
+              SizedBox(
+                width: 120,
+                child: TextField(
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    hintText: '-100 for discount',
+                    isDense: true,
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: (value) {
+                    setState(() {
+                      _adjustment = double.tryParse(value) ?? 0;
+                    });
+                  },
+                ),
+              ),
+            ],
+          ),
+          const Divider(height: 24),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Total',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              Text(
+                'Rs. ${grandTotal.toStringAsFixed(0)}',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+            ],
           ),
         ],
       ),
     );
   }
+
+
 
   Widget _buildItemRow(ListEntry entry) {
     return Card(
@@ -236,32 +297,55 @@ class _GroceryListWorkspaceScreenState
     );
   }
 
-
   Widget _buildPriceInput(ListEntry entry) {
-    final controller = TextEditingController(
-      text: entry.unitPrice?.toStringAsFixed(0),
-    );
-
-    return SizedBox(
-      width: 120,
-      child: TextField(
-        controller: controller,
-        keyboardType: TextInputType.number,
-        decoration: const InputDecoration(
-          labelText: 'Unit Rs.',
-          border: OutlineInputBorder(),
-          isDense: true,
+    return Row(
+      children: [
+        SizedBox(
+          width: 90,
+          child: TextField(
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: 'Unit Rs.',
+              isDense: true,
+              border: OutlineInputBorder(),
+            ),
+            onChanged: (value) {
+              final price = double.tryParse(value);
+              setState(() {
+                if (price != null) {
+                  entry.unitPrice = price;
+                  entry.totalPrice = null;
+                } else {
+                  entry.unitPrice = null;
+                }
+              });
+            },
+          ),
         ),
-        onSubmitted: (value) {
-          final price = double.tryParse(value);
-          if (price != null) {
-            setState(() {
-              entry.unitPrice = price;
-              entry.totalPrice = null;
-            });
-          }
-        },
-      ),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 90,
+          child: TextField(
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: 'Total Rs.',
+              isDense: true,
+              border: OutlineInputBorder(),
+            ),
+            onChanged: (value) {
+              final price = double.tryParse(value);
+              setState(() {
+                if (price != null) {
+                  entry.totalPrice = price;
+                  entry.unitPrice = null;
+                } else {
+                  entry.totalPrice = null;
+                }
+              });
+            },
+          ),
+        ),
+      ],
     );
   }
 
