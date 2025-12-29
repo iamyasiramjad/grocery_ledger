@@ -41,7 +41,9 @@ class _GroceryListWorkspaceScreenState
   void initState() {
     super.initState();
     _openBox().then((_) {
-      _loadExistingList();
+      setState(() {
+        _loadExistingList();
+      });
       _saveList(); // initial save (now safe)
     });
   }

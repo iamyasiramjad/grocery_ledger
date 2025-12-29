@@ -92,7 +92,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           existingList: list, // 👈 LOAD FROM HIVE
                         ),
                       ),
-                    );
+                    ).then((_) => setState(() {}));
                   },
                 );
               },
@@ -107,7 +107,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             MaterialPageRoute(
               builder: (_) => CreateGroceryListScreen(),
             ),
-          );
+          ).then((_) => setState(() {}));
         },
       ),
     );

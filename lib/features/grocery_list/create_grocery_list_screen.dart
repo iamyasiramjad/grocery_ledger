@@ -64,7 +64,7 @@ class _CreateGroceryListScreenState extends State<CreateGroceryListScreen> {
       return;
     }
 
-    Navigator.push(
+    Navigator.pushReplacement(
       context,
       MaterialPageRoute(
         builder: (_) => GroceryListWorkspaceScreen(
