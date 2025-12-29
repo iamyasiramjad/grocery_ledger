@@ -1,18 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:hive/hive.dart';
 import '../../../core/utils/static_items.dart';
-import 'add_item_bottom_sheet.dart';
+import '../models/grocery_item.dart';
 import '../models/list_entry.dart';
+import '../storage/hive_grocery_list.dart';
+import '../storage/hive_list_entry.dart';
+import 'add_item_bottom_sheet.dart';
 
 class GroceryListWorkspaceScreen extends StatefulWidget {
   final String listName;
   final DateTime shoppingDate;
   final bool importFromPrevious;
+  final HiveGroceryList? existingList;
 
   const GroceryListWorkspaceScreen({
     super.key,
     required this.listName,
     required this.shoppingDate,
     required this.importFromPrevious,
+    this.existingList, // 👈 added
   });
 
   @override
@@ -20,27 +26,100 @@ class GroceryListWorkspaceScreen extends StatefulWidget {
       _GroceryListWorkspaceScreenState();
 }
 
-/* ============================================================
-   EVERYTHING BELOW THIS LINE IS THE "STATE CLASS"
-   THIS IS WHERE YOU PUT LOGIC + UI
-   ============================================================ */
-
 class _GroceryListWorkspaceScreenState
     extends State<GroceryListWorkspaceScreen> {
-
-  // 🧠 STATE (in-memory)
+  // ===================== STATE =====================
+  bool _boxReady = false;
   final List<ListEntry> _entries = [];
-  double _adjustment = 0; // negative = discount, positive = extra
+  double _adjustment = 0;
+
+  late Box<HiveGroceryList> _groceryListBox;
+
+  // ===================== LIFECYCLE =====================
+
+  @override
+  void initState() {
+    super.initState();
+    _openBox().then((_) {
+      _loadExistingList();
+      _saveList(); // initial save (now safe)
+    });
+  }
+
+
+  Future<void> _openBox() async {
+    _groceryListBox = await Hive.openBox<HiveGroceryList>('grocery_lists');
+    _boxReady = true;
+  }
+
+
+  // ===================== LOAD FROM HIVE =====================
+
+
+  void _loadExistingList() {
+    final list = widget.existingList;
+    if (list == null) return;
+
+    _adjustment = list.adjustment;
+    _entries.clear();
+
+    for (final hiveEntry in list.entries) {
+      _entries.add(
+        ListEntry(
+          item: StaticItem(
+            hiveEntry.itemName,
+            hiveEntry.category,
+          ),
+          quantity: hiveEntry.quantity,
+          unitPrice: hiveEntry.unitPrice,
+          totalPrice: hiveEntry.totalPrice,
+        ),
+      );
+    }
+  }
+
+
+  // ===================== HELPERS =====================
+
+  void _updateState(VoidCallback action) {
+    setState(action);
+    _saveList();
+  }
 
   double _calculateGrandTotal() {
     final itemsTotal = _entries.fold<double>(
       0.0,
       (sum, entry) => sum + entry.calculatedTotal,
     );
-
     return itemsTotal + _adjustment;
   }
 
+  HiveGroceryList _toHiveModel() {
+    return HiveGroceryList(
+      name: widget.listName,
+      date: widget.shoppingDate,
+      adjustment: _adjustment,
+      entries: _entries.map((entry) {
+        return HiveListEntry(
+          itemName: entry.item.name,
+          category: entry.item.category,
+          quantity: entry.quantity,
+          unitPrice: entry.unitPrice,
+          totalPrice: entry.totalPrice,
+        );
+      }).toList(),
+    );
+  }
+
+  Future<void> _saveList() async {
+    if (!_boxReady) return;
+
+    final hiveList = _toHiveModel();
+    await _groceryListBox.put(widget.listName, hiveList);
+  }
+
+
+  // ===================== UI =====================
 
   @override
   Widget build(BuildContext context) {
@@ -52,17 +131,13 @@ class _GroceryListWorkspaceScreenState
         children: [
           _buildHeader(),
           const Divider(height: 1),
-          Expanded(
-            child: _buildItemsArea(context),
-          ),
+          Expanded(child: _buildItemsArea(context)),
           const Divider(height: 1),
           _buildBottomBar(),
         ],
       ),
     );
   }
-
-  /* ===================== UI SECTIONS ===================== */
 
   Widget _buildHeader() {
     return Padding(
@@ -71,7 +146,10 @@ class _GroceryListWorkspaceScreenState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Shopping date: ${widget.shoppingDate.year}-${widget.shoppingDate.month.toString().padLeft(2, '0')}-${widget.shoppingDate.day.toString().padLeft(2, '0')}',
+            'Shopping date: '
+            '${widget.shoppingDate.year}-'
+            '${widget.shoppingDate.month.toString().padLeft(2, '0')}-'
+            '${widget.shoppingDate.day.toString().padLeft(2, '0')}',
           ),
           const SizedBox(height: 4),
           Text(
@@ -102,19 +180,15 @@ class _GroceryListWorkspaceScreenState
   }
 
   Widget _buildCategorySection(String category) {
-    final entries = _entries
-        .where((entry) => entry.item.category == category)
-        .toList();
+    final entries =
+        _entries.where((e) => e.item.category == category).toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           category,
-          style: const TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-          ),
+          style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
         ),
         const SizedBox(height: 8),
         if (entries.isEmpty)
@@ -132,17 +206,16 @@ class _GroceryListWorkspaceScreenState
           )
         else
           Column(
-            children: entries.map((entry) {
-              return _buildItemRow(entry);
-            }).toList(),
+            children: entries.map(_buildItemRow).toList(),
           ),
       ],
     );
   }
 
-
   Widget _buildAddItemButton(BuildContext context) {
     return TextButton.icon(
+      icon: const Icon(Icons.add),
+      label: const Text('Add Item'),
       onPressed: () {
         showModalBottomSheet(
           context: context,
@@ -150,11 +223,10 @@ class _GroceryListWorkspaceScreenState
           builder: (_) {
             return AddItemBottomSheet(
               onItemsSelected: (items) {
-                setState(() {
+                _updateState(() {
                   for (final item in items) {
-                    final exists = _entries.any(
-                      (entry) => entry.item.name == item.name,
-                    );
+                    final exists =
+                        _entries.any((e) => e.item.name == item.name);
                     if (!exists) {
                       _entries.add(ListEntry(item: item));
                     }
@@ -165,77 +237,8 @@ class _GroceryListWorkspaceScreenState
           },
         );
       },
-      icon: const Icon(Icons.add),
-      label: const Text('Add Item'),
     );
   }
-
-  Widget _buildBottomBar() {
-    final itemsTotal = _entries.fold<double>(
-      0.0,
-      (sum, entry) => sum + entry.calculatedTotal,
-    );
-
-    final grandTotal = itemsTotal + _adjustment;
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      color: Colors.grey.shade50,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('Subtotal'),
-              Text('Rs. ${itemsTotal.toStringAsFixed(0)}'),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              const Expanded(child: Text('Adjustment')),
-              SizedBox(
-                width: 120,
-                child: TextField(
-                  keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(
-                    hintText: '-100 for discount',
-                    isDense: true,
-                    border: OutlineInputBorder(),
-                  ),
-                  onChanged: (value) {
-                    setState(() {
-                      _adjustment = double.tryParse(value) ?? 0;
-                    });
-                  },
-                ),
-              ),
-            ],
-          ),
-          const Divider(height: 24),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Total',
-                style: TextStyle(fontWeight: FontWeight.bold),
-              ),
-              Text(
-                'Rs. ${grandTotal.toStringAsFixed(0)}',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 16,
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-
 
   Widget _buildItemRow(ListEntry entry) {
     return Card(
@@ -277,21 +280,13 @@ class _GroceryListWorkspaceScreenState
         IconButton(
           icon: const Icon(Icons.remove),
           onPressed: entry.quantity > 1
-              ? () {
-                  setState(() {
-                    entry.quantity--;
-                  });
-                }
+              ? () => _updateState(() => entry.quantity--)
               : null,
         ),
         Text(entry.quantity.toString()),
         IconButton(
           icon: const Icon(Icons.add),
-          onPressed: () {
-            setState(() {
-              entry.quantity++;
-            });
-          },
+          onPressed: () => _updateState(() => entry.quantity++),
         ),
       ],
     );
@@ -311,7 +306,7 @@ class _GroceryListWorkspaceScreenState
             ),
             onChanged: (value) {
               final price = double.tryParse(value);
-              setState(() {
+              _updateState(() {
                 if (price != null) {
                   entry.unitPrice = price;
                   entry.totalPrice = null;
@@ -334,7 +329,7 @@ class _GroceryListWorkspaceScreenState
             ),
             onChanged: (value) {
               final price = double.tryParse(value);
-              setState(() {
+              _updateState(() {
                 if (price != null) {
                   entry.totalPrice = price;
                   entry.unitPrice = null;
@@ -349,5 +344,68 @@ class _GroceryListWorkspaceScreenState
     );
   }
 
+  Widget _buildBottomBar() {
+    final itemsTotal = _entries.fold<double>(
+      0.0,
+      (sum, entry) => sum + entry.calculatedTotal,
+    );
 
+    final grandTotal = itemsTotal + _adjustment;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      color: Colors.grey.shade50,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Subtotal'),
+              Text('Rs. ${itemsTotal.toStringAsFixed(0)}'),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              const Expanded(child: Text('Adjustment')),
+              SizedBox(
+                width: 120,
+                child: TextField(
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(
+                    hintText: '-100 for discount',
+                    isDense: true,
+                    border: OutlineInputBorder(),
+                  ),
+                  onChanged: (value) {
+                    _updateState(() {
+                      _adjustment = double.tryParse(value) ?? 0;
+                    });
+                  },
+                ),
+              ),
+            ],
+          ),
+          const Divider(height: 24),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                'Total',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              Text(
+                'Rs. ${grandTotal.toStringAsFixed(0)}',
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }
