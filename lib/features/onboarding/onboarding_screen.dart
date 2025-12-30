@@ -1,8 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:hive/hive.dart';
+import '../../core/storage/hive_app_settings.dart';
 
 /// Full-screen onboarding screen shown only on first app launch.
 /// Allows user to choose between starting with sample data or an empty app.
 class OnboardingScreen extends StatelessWidget {
+  /// Hive box for persisting onboarding completion status.
+  final Box<HiveAppSettings> settingsBox;
+
   /// Callback when user chooses to add sample data
   final VoidCallback? onAddSampleData;
 
@@ -11,6 +16,7 @@ class OnboardingScreen extends StatelessWidget {
 
   const OnboardingScreen({
     super.key,
+    required this.settingsBox,
     this.onAddSampleData,
     this.onStartEmpty,
   });

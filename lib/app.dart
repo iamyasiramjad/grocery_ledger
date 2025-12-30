@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
-import 'features/dashboard/dashboard_screen.dart';
-import 'features/onboarding/onboarding_screen.dart';
 
+/// Root application widget for Grocery Ledger.
+///
+/// The initial [home] screen is determined BEFORE this widget is created,
+/// in main.dart, to ensure no flicker or intermediate screens.
 class GroceryLedgerApp extends StatelessWidget {
-  const GroceryLedgerApp({super.key});
+  /// The initial screen to display (OnboardingScreen or DashboardScreen).
+  final Widget home;
+
+  const GroceryLedgerApp({super.key, required this.home});
 
   @override
   Widget build(BuildContext context) {
@@ -14,14 +19,7 @@ class GroceryLedgerApp extends StatelessWidget {
         useMaterial3: true,
         colorSchemeSeed: Colors.green,
       ),
-      home: OnboardingScreen(
-        onAddSampleData: () {
-          // TODO: Add sample data logic and navigate to DashboardScreen
-        },
-        onStartEmpty: () {
-          // TODO: Navigate to DashboardScreen
-        },
-      ),
+      home: home,
     );
   }
 }
