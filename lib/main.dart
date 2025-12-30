@@ -39,15 +39,7 @@ void main() async {
   // Determine initial screen based on onboarding completion status
   final Widget initialScreen = settings.hasCompletedOnboarding
       ? const DashboardScreen()
-      : OnboardingScreen(
-          settingsBox: settingsBox,
-          onAddSampleData: () {
-            // TODO: Add sample data logic
-          },
-          onStartEmpty: () {
-            // TODO: Start empty logic
-          },
-        );
+      : OnboardingScreen(settingsBox: settingsBox);
 
   runApp(GroceryLedgerApp(home: initialScreen));
 }

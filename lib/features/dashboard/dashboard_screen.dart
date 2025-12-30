@@ -89,7 +89,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
                           listName: list.name,
                           shoppingDate: list.date,
                           importFromPrevious: false,
-                          existingList: list, // 👈 LOAD FROM HIVE
+                          existingList: list,
+                          existingListKey: list.key, // 👈 PASS THE UNIQUE KEY
                         ),
                       ),
                     ).then((_) => setState(() {}));

@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import '../../core/storage/hive_app_settings.dart';
+import '../grocery_list/storage/hive_grocery_list.dart';
+import '../grocery_list/storage/hive_list_entry.dart';
+import '../dashboard/dashboard_screen.dart';
 
 /// Full-screen onboarding screen shown only on first app launch.
 /// Allows user to choose between starting with sample data or an empty app.
@@ -8,18 +11,99 @@ class OnboardingScreen extends StatelessWidget {
   /// Hive box for persisting onboarding completion status.
   final Box<HiveAppSettings> settingsBox;
 
-  /// Callback when user chooses to add sample data
-  final VoidCallback? onAddSampleData;
-
-  /// Callback when user chooses to start empty
-  final VoidCallback? onStartEmpty;
-
   const OnboardingScreen({
     super.key,
     required this.settingsBox,
-    this.onAddSampleData,
-    this.onStartEmpty,
   });
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // BUTTON HANDLERS
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Handles "Yes, add sample data" button press.
+  /// Marks onboarding complete, seeds sample data, and navigates to Dashboard.
+  Future<void> _handleAddSampleData(BuildContext context) async {
+    // 1. Mark onboarding as completed
+    await _completeOnboarding();
+
+    // 2. Seed sample grocery data
+    await _seedSampleData();
+
+    // 3. Navigate to Dashboard (replace current screen, no back navigation)
+    if (context.mounted) {
+      _navigateToDashboard(context);
+    }
+  }
+
+  /// Handles "No, start empty" button press.
+  /// Marks onboarding complete and navigates to Dashboard without sample data.
+  Future<void> _handleStartEmpty(BuildContext context) async {
+    // 1. Mark onboarding as completed
+    await _completeOnboarding();
+
+    // 2. Navigate to Dashboard (replace current screen, no back navigation)
+    if (context.mounted) {
+      _navigateToDashboard(context);
+    }
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // HELPER METHODS
+  // ─────────────────────────────────────────────────────────────────────────
+
+  /// Saves hasCompletedOnboarding = true to Hive.
+  /// This ensures the onboarding screen never appears again.
+  Future<void> _completeOnboarding() async {
+    final settings = HiveAppSettings(hasCompletedOnboarding: true);
+    await settingsBox.put('settings', settings);
+  }
+
+  /// Inserts a small, simple sample dataset into the grocery_lists box.
+  /// Creates one grocery list with two items to demonstrate app functionality.
+  Future<void> _seedSampleData() async {
+    final groceryListBox =
+        await Hive.openBox<HiveGroceryList>('grocery_lists');
+
+    // Create sample grocery list with two items
+    final sampleList = HiveGroceryList(
+      name: 'Weekly Groceries',
+      date: DateTime.now(),
+      adjustment: 0,
+      entries: [
+        HiveListEntry(
+          itemName: 'Milk',
+          category: 'Dairy',
+          quantity: 2,
+          unitPrice: 3.50,
+          totalPrice: 7.00,
+        ),
+        HiveListEntry(
+          itemName: 'Bread',
+          category: 'Bakery',
+          quantity: 1,
+          unitPrice: 2.50,
+          totalPrice: 2.50,
+        ),
+      ],
+    );
+
+    // Add the sample list to the box
+    await groceryListBox.add(sampleList);
+  }
+
+  /// Navigates to DashboardScreen, replacing the onboarding screen.
+  /// Uses pushReplacement to prevent back navigation to onboarding.
+  void _navigateToDashboard(BuildContext context) {
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(
+        builder: (context) => const DashboardScreen(),
+      ),
+    );
+  }
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // BUILD METHOD
+  // ─────────────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -68,7 +152,7 @@ class OnboardingScreen extends StatelessWidget {
                       // ─────────────────────────────────────────────────────
                       // ACTION BUTTONS SECTION
                       // ─────────────────────────────────────────────────────
-                      _buildActionButtonsSection(theme, colorScheme),
+                      _buildActionButtonsSection(context, theme, colorScheme),
 
                       const SizedBox(height: 24),
 
@@ -167,13 +251,17 @@ class OnboardingScreen extends StatelessWidget {
   }
 
   /// Builds the action buttons (primary and secondary)
-  Widget _buildActionButtonsSection(ThemeData theme, ColorScheme colorScheme) {
+  Widget _buildActionButtonsSection(
+    BuildContext context,
+    ThemeData theme,
+    ColorScheme colorScheme,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // Primary Button - Add Sample Data
         FilledButton(
-          onPressed: onAddSampleData,
+          onPressed: () => _handleAddSampleData(context),
           style: FilledButton.styleFrom(
             padding: const EdgeInsets.symmetric(vertical: 18),
             shape: RoundedRectangleBorder(
@@ -193,7 +281,7 @@ class OnboardingScreen extends StatelessWidget {
 
         // Secondary Button - Start Empty
         OutlinedButton(
-          onPressed: onStartEmpty,
+          onPressed: () => _handleStartEmpty(context),
           style: OutlinedButton.styleFrom(
             padding: const EdgeInsets.symmetric(vertical: 18),
             side: BorderSide(
@@ -221,7 +309,7 @@ class OnboardingScreen extends StatelessWidget {
     return Text(
       'You can remove or change everything later.',
       style: theme.textTheme.bodySmall?.copyWith(
-        color: theme.colorScheme.onSurfaceVariant.withOpacity(0.8),
+        color: theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.8),
       ),
       textAlign: TextAlign.center,
     );

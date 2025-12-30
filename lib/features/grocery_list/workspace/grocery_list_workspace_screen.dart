@@ -12,13 +12,16 @@ class GroceryListWorkspaceScreen extends StatefulWidget {
   final DateTime shoppingDate;
   final bool importFromPrevious;
   final HiveGroceryList? existingList;
+  /// The Hive key of the existing list (for updates, to avoid duplicates)
+  final dynamic existingListKey;
 
   const GroceryListWorkspaceScreen({
     super.key,
     required this.listName,
     required this.shoppingDate,
     required this.importFromPrevious,
-    this.existingList, // 👈 added
+    this.existingList,
+    this.existingListKey,
   });
 
   @override
@@ -32,6 +35,8 @@ class _GroceryListWorkspaceScreenState
   bool _boxReady = false;
   final List<ListEntry> _entries = [];
   double _adjustment = 0;
+  /// The current Hive key for this list. Null for new lists until first save.
+  dynamic _currentKey;
 
   late Box<HiveGroceryList> _groceryListBox;
 
@@ -40,6 +45,7 @@ class _GroceryListWorkspaceScreenState
   @override
   void initState() {
     super.initState();
+    _currentKey = widget.existingListKey;
     _openBox().then((_) {
       setState(() {
         _loadExistingList();
@@ -117,7 +123,17 @@ class _GroceryListWorkspaceScreenState
     if (!_boxReady) return;
 
     final hiveList = _toHiveModel();
-    await _groceryListBox.put(widget.listName, hiveList);
+    
+    if (_currentKey != null) {
+      // Update existing record
+      await _groceryListBox.put(_currentKey, hiveList);
+    } else {
+      // New record - let Hive auto-increment
+      final newKey = await _groceryListBox.add(hiveList);
+      setState(() {
+        _currentKey = newKey;
+      });
+    }
   }
 
 
