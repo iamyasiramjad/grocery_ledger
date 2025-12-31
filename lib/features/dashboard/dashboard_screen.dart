@@ -4,6 +4,7 @@ import 'package:hive/hive.dart';
 import '../grocery_list/storage/hive_grocery_list.dart';
 import '../grocery_list/workspace/grocery_list_workspace_screen.dart';
 import '../grocery_list/create_grocery_list_screen.dart';
+import '../categories/ui/manage_categories_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -45,6 +46,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('My Grocery Lists'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.category),
+            tooltip: 'Manage Categories',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ManageCategoriesScreen()),
+              );
+            },
+          ),
+        ],
       ),
       body: lists.isEmpty
           ? const Center(
