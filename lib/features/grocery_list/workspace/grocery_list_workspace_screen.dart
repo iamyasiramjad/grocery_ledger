@@ -37,6 +37,12 @@ class _GroceryListWorkspaceScreenState
   double _adjustment = 0;
   /// The current Hive key for this list. Null for new lists until first save.
   dynamic _currentKey;
+  /// The current name of the list, which can be edited.
+  late String _listName;
+  /// Whether the user is currently editing the list name inline in the AppBar.
+  bool _isEditingName = false;
+  /// Focus node for the name editing text field.
+  final FocusNode _nameFocusNode = FocusNode();
 
   late Box<HiveGroceryList> _groceryListBox;
 
@@ -46,12 +52,20 @@ class _GroceryListWorkspaceScreenState
   void initState() {
     super.initState();
     _currentKey = widget.existingListKey;
+    _listName = widget.listName;
     _openBox().then((_) {
       setState(() {
         _loadExistingList();
       });
       _saveList(); // initial save (now safe)
     });
+  }
+
+
+  @override
+  void dispose() {
+    _nameFocusNode.dispose();
+    super.dispose();
   }
 
 
@@ -104,7 +118,7 @@ class _GroceryListWorkspaceScreenState
 
   HiveGroceryList _toHiveModel() {
     return HiveGroceryList(
-      name: widget.listName,
+      name: _listName,
       date: widget.shoppingDate,
       adjustment: _adjustment,
       entries: _entries.map((entry) {
@@ -141,9 +155,25 @@ class _GroceryListWorkspaceScreenState
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.listName),
+        title: _isEditingName
+            ? TextField(
+                focusNode: _nameFocusNode,
+                autofocus: true,
+                controller: TextEditingController(text: _listName),
+                style: theme.textTheme.titleLarge,
+                decoration: const InputDecoration(
+                  border: InputBorder.none,
+                  hintText: 'List name',
+                ),
+                onSubmitted: _saveNewName,
+              )
+            : InkWell(
+                onTap: _toggleEditName,
+                child: Text(_listName),
+              ),
       ),
       body: Column(
         children: [
@@ -155,6 +185,26 @@ class _GroceryListWorkspaceScreenState
         ],
       ),
     );
+  }
+
+  void _toggleEditName() {
+    setState(() {
+      _isEditingName = true;
+    });
+  }
+
+  void _saveNewName(String value) {
+    final newName = value.trim();
+    if (newName.isNotEmpty) {
+      _updateState(() {
+        _listName = newName;
+        _isEditingName = false;
+      });
+    } else {
+      setState(() {
+        _isEditingName = false;
+      });
+    }
   }
 
   Widget _buildHeader() {

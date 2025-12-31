@@ -5,6 +5,8 @@ import 'features/grocery_list/storage/hive_grocery_list.dart';
 import 'features/grocery_list/storage/hive_list_entry.dart';
 import 'features/dashboard/dashboard_screen.dart';
 import 'features/onboarding/onboarding_screen.dart';
+import 'features/categories/storage/hive_user_category.dart';
+import 'features/items/storage/hive_user_item.dart';
 import 'package:flutter/material.dart';
 import 'app.dart';
 
@@ -22,6 +24,12 @@ void main() async {
   }
   if (!Hive.isAdapterRegistered(2)) {
     Hive.registerAdapter(HiveAppSettingsAdapter());
+  }
+  if (!Hive.isAdapterRegistered(3)) {
+    Hive.registerAdapter(HiveUserCategoryAdapter());
+  }
+  if (!Hive.isAdapterRegistered(4)) {
+    Hive.registerAdapter(HiveUserItemAdapter());
   }
 
   // ─────────────────────────────────────────────────────────────────────────

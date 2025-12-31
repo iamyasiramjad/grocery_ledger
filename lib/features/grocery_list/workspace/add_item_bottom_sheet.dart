@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:hive/hive.dart';
 import '../../../core/utils/static_items.dart';
+import '../../categories/storage/hive_user_category.dart';
+import '../../items/storage/hive_user_item.dart';
 
 class AddItemBottomSheet extends StatefulWidget {
   final void Function(List<StaticItem>) onItemsSelected;
@@ -22,12 +25,68 @@ class _AddItemBottomSheetState extends State<AddItemBottomSheet> {
   final TextEditingController _searchController = TextEditingController();
 
   final Set<StaticItem> _selectedItems = {};
+  List<StaticItem> _allAvailableItems = [];
+  bool _isLoading = true;
 
   String _query = '';
 
   @override
+  void initState() {
+    super.initState();
+    _loadAllItems();
+  }
+
+  Future<void> _loadAllItems() async {
+    // 1️⃣ LOAD USER DATA
+    final categoryBox = await Hive.openBox<HiveUserCategory>('user_categories');
+    final itemBox = await Hive.openBox<HiveUserItem>('user_items');
+
+    // Create a lookup map for category names
+    final Map<String, String> categoryNames = {
+      for (final cat in categoryBox.values) cat.id: cat.name,
+    };
+
+    // 2️⃣ NORMALIZE DATA
+    final userNormalized = itemBox.values
+        .map((hiveItem) {
+          final categoryName = categoryNames[hiveItem.categoryId];
+          if (categoryName == null) return null; // Skip if invalid category
+
+          return StaticItem(hiveItem.name, categoryName);
+        })
+        .whereType<StaticItem>()
+        .toList();
+
+    // 3️⃣ MERGE LOGIC
+    // Use a map to handle overrides and duplicates
+    // Key is name to ensure "names clash" override logic
+    final Map<String, StaticItem> mergedItems = {};
+
+    // First add static items
+    for (final item in staticItems) {
+      mergedItems[item.name] = item;
+    }
+
+    // Then add user items (overriding static items if names clash)
+    for (final item in userNormalized) {
+      mergedItems[item.name] = item;
+    }
+
+    if (mounted) {
+      setState(() {
+        _allAvailableItems = mergedItems.values.toList();
+        _isLoading = false;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final items = staticItems.where((item) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final items = _allAvailableItems.where((item) {
       return item.name.toLowerCase().contains(_query.toLowerCase());
     }).toList();
 
