@@ -5,6 +5,7 @@ import '../grocery_list/storage/hive_grocery_list.dart';
 import '../grocery_list/workspace/grocery_list_workspace_screen.dart';
 import '../grocery_list/create_grocery_list_screen.dart';
 import '../categories/ui/manage_categories_screen.dart';
+import '../items/ui/manage_items_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});

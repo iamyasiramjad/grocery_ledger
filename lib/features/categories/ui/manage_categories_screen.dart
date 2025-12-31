@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
 import '../storage/hive_user_category.dart';
 import 'create_category_screen.dart';
+import '../../items/ui/create_item_screen.dart';
 
 class ManageCategoriesScreen extends StatefulWidget {
   const ManageCategoriesScreen({super.key});
@@ -63,6 +64,20 @@ class _ManageCategoriesScreenState extends State<ManageCategoriesScreen> {
                   return ListTile(
                     title: Text(category.name),
                     subtitle: Text('ID: ${category.id}'),
+                    trailing: IconButton(
+                      icon: const Icon(Icons.add_circle_outline),
+                      tooltip: 'Add item to this category',
+                      onPressed: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => CreateItemScreen(
+                              initialCategoryId: category.id,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
                   );
                 },
               );

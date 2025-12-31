@@ -3,6 +3,7 @@ import 'package:hive/hive.dart';
 import '../../../core/utils/static_items.dart';
 import '../../categories/storage/hive_user_category.dart';
 import '../../items/storage/hive_user_item.dart';
+import '../../items/presentation/pages/create_item_screen.dart';
 
 class AddItemBottomSheet extends StatefulWidget {
   final void Function(List<StaticItem>) onItemsSelected;
@@ -45,6 +46,14 @@ class _AddItemBottomSheetState extends State<AddItemBottomSheet> {
     final Map<String, String> categoryNames = {
       for (final cat in categoryBox.values) cat.id: cat.name,
     };
+
+    // Also add static categories to the lookup (where ID == Name)
+    final staticCategoryNames = staticItems.map((e) => e.category).toSet();
+    for (final name in staticCategoryNames) {
+      if (!categoryNames.containsKey(name)) {
+        categoryNames[name] = name;
+      }
+    }
 
     // 2️⃣ NORMALIZE DATA
     final userNormalized = itemBox.values
@@ -105,14 +114,34 @@ class _AddItemBottomSheetState extends State<AddItemBottomSheet> {
   /* ===================== UI PARTS ===================== */
 
   Widget _buildHeader() {
-    return const Padding(
-      padding: EdgeInsets.all(16),
-      child: Text(
-        'Add Item',
-        style: TextStyle(
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
-        ),
+    return Padding(
+      padding: const EdgeInsets.all(16),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          const Text(
+            'Add Item',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          TextButton.icon(
+            icon: const Icon(Icons.add, size: 18),
+            label: const Text('Add New Item'),
+            onPressed: () async {
+              // Navigate to item creation
+              final created = await Navigator.push<bool>(
+                context,
+                MaterialPageRoute(builder: (_) => CreateItemScreen()),
+              );
+              // If an item was created, reload the list to show it
+              if (created == true) {
+                _loadAllItems();
+              }
+            },
+          ),
+        ],
       ),
     );
   }

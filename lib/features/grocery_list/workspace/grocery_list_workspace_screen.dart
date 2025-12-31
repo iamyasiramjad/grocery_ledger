@@ -235,13 +235,17 @@ class _GroceryListWorkspaceScreenState
   }
 
   Widget _buildItemsArea(BuildContext context) {
+    // Get unique categories from current entries to show them all dynamically
+    final categories = _entries.map((e) => e.item.category).toSet().toList();
+    categories.sort();
+
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        _buildCategorySection('Cleaning'),
-        const SizedBox(height: 16),
-        _buildCategorySection('Food'),
-        const SizedBox(height: 16),
+        for (final category in categories) ...[
+          _buildCategorySection(category),
+          const SizedBox(height: 16),
+        ],
         _buildAddItemButton(context),
       ],
     );
