@@ -4,19 +4,27 @@ import '../../../core/utils/static_items.dart';
 import '../storage/hive_user_category.dart';
 
 class CreateCategoryScreen extends StatefulWidget {
-  const CreateCategoryScreen({super.key});
+  final HiveUserCategory? existingCategory;
+
+  const CreateCategoryScreen({
+    super.key,
+    this.existingCategory,
+  });
 
   @override
   State<CreateCategoryScreen> createState() => _CreateCategoryScreenState();
 }
 
 class _CreateCategoryScreenState extends State<CreateCategoryScreen> {
-  final TextEditingController _nameController = TextEditingController();
+  late final TextEditingController _nameController;
   final FocusNode _nameFocusNode = FocusNode();
 
   @override
   void initState() {
     super.initState();
+    _nameController = TextEditingController(
+      text: widget.existingCategory?.name ?? '',
+    );
     // Auto-focus enabled as per requirement 2
     _nameFocusNode.requestFocus();
   }
@@ -44,21 +52,34 @@ class _CreateCategoryScreenState extends State<CreateCategoryScreen> {
     
     // Load existing user categories
     final categoryBox = await Hive.openBox<HiveUserCategory>('user_categories');
-    final existingUserCategories = categoryBox.values.map((cat) => cat.name.toLowerCase()).toSet();
+    
+    // Check duplication, but exclude the current category's own name if we're editing it
+    final isDuplicate = categoryBox.values.any((cat) {
+      // If we are editing, ignore the name of the category being edited
+      if (widget.existingCategory != null && cat.id == widget.existingCategory!.id) {
+        return false;
+      }
+      return cat.name.toLowerCase() == name.toLowerCase();
+    });
 
-    if (staticCategories.contains(name.toLowerCase()) || 
-        existingUserCategories.contains(name.toLowerCase())) {
+    if (staticCategories.contains(name.toLowerCase()) || isDuplicate) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Category name already exists')),
       );
       return;
     }
 
-    // 4️⃣ SAVE LOGIC
-    final id = DateTime.now().millisecondsSinceEpoch.toString();
-    final newCategory = HiveUserCategory(id: id, name: name);
-    
-    await categoryBox.put(id, newCategory);
+    // 4️⃣ SAVE/UPDATE LOGIC
+    if (widget.existingCategory != null) {
+      // Update existing
+      widget.existingCategory!.name = name;
+      await widget.existingCategory!.save();
+    } else {
+      // Create new
+      final id = DateTime.now().millisecondsSinceEpoch.toString();
+      final newCategory = HiveUserCategory(id: id, name: name);
+      await categoryBox.put(id, newCategory);
+    }
 
     if (mounted) {
       Navigator.pop(context, true); // Return true to indicate refresh needed
@@ -67,9 +88,11 @@ class _CreateCategoryScreenState extends State<CreateCategoryScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isEditing = widget.existingCategory != null;
+
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Add Category'),
+        title: Text(isEditing ? 'Edit Category' : 'Add Category'),
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
@@ -90,7 +113,7 @@ class _CreateCategoryScreenState extends State<CreateCategoryScreen> {
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: _saveCategory,
-                child: const Text('Save Category'),
+                child: Text(isEditing ? 'Save Changes' : 'Save Category'),
               ),
             ),
           ],

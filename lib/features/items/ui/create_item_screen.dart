@@ -6,14 +6,20 @@ import '../storage/hive_user_item.dart';
 
 class CreateItemScreen extends StatefulWidget {
   final String? initialCategoryId;
-  const CreateItemScreen({super.key, this.initialCategoryId});
+  final HiveUserItem? existingItem;
+
+  const CreateItemScreen({
+    super.key,
+    this.initialCategoryId,
+    this.existingItem,
+  });
 
   @override
   State<CreateItemScreen> createState() => _CreateItemScreenState();
 }
 
 class _CreateItemScreenState extends State<CreateItemScreen> {
-  final _nameController = TextEditingController();
+  late final TextEditingController _nameController;
   final _nameFocusNode = FocusNode();
   
   String? _selectedCategoryName; // The display name
@@ -25,6 +31,7 @@ class _CreateItemScreenState extends State<CreateItemScreen> {
   @override
   void initState() {
     super.initState();
+    _nameController = TextEditingController(text: widget.existingItem?.name ?? '');
     _nameFocusNode.requestFocus();
     _loadCategories();
   }
@@ -53,15 +60,14 @@ class _CreateItemScreenState extends State<CreateItemScreen> {
         _categories = merged;
         _isLoading = false;
 
-        // Pre-select category if provided
-        if (widget.initialCategoryId != null) {
+        // Pre-select category if provided or existing
+        final targetCatId = widget.existingItem?.categoryId ?? widget.initialCategoryId;
+        if (targetCatId != null) {
           try {
-            final initial = merged.firstWhere((c) => c.id == widget.initialCategoryId);
+            final initial = merged.firstWhere((c) => c.id == targetCatId);
             _selectedCategoryId = initial.id;
             _selectedCategoryName = initial.name;
-          } catch (_) {
-            // Not found, ignore
-          }
+          } catch (_) {}
         }
       });
     }
@@ -89,16 +95,18 @@ class _CreateItemScreenState extends State<CreateItemScreen> {
     }
 
     // 4️⃣ SAVE LOGIC
-    final itemBox = await Hive.openBox<HiveUserItem>('user_items');
-    final id = DateTime.now().millisecondsSinceEpoch.toString();
-    
-    final newItem = HiveUserItem(
-      id: id,
-      name: name,
-      categoryId: _selectedCategoryId!,
-    );
-
-    await itemBox.put(id, newItem);
+    if (widget.existingItem != null) {
+      // Update existing
+      widget.existingItem!.name = name;
+      widget.existingItem!.categoryId = _selectedCategoryId!;
+      await widget.existingItem!.save();
+    } else {
+      // Create new
+      final itemBox = await Hive.openBox<HiveUserItem>('user_items');
+      final id = DateTime.now().millisecondsSinceEpoch.toString();
+      final newItem = HiveUserItem(id: id, name: name, categoryId: _selectedCategoryId!);
+      await itemBox.put(id, newItem);
+    }
 
     if (mounted) {
       Navigator.pop(context, true);
@@ -121,16 +129,19 @@ class _CreateItemScreenState extends State<CreateItemScreen> {
     
     // Create lookup for user items
     for (final item in itemBox.values) {
+      // If editing, skip the current item
+      if (widget.existingItem != null && item.id == widget.existingItem!.id) {
+        continue;
+      }
+
       if (item.name.toLowerCase() == lowerName) {
         // Find category name for this item
         String? itemCatName;
-        // User item might reference a static category name as ID OR a User category ID
         final userCat = categoryBox.values.firstWhere((c) => c.id == item.categoryId, orElse: () => HiveUserCategory(id: '', name: ''));
         
         if (userCat.id.isNotEmpty) {
           itemCatName = userCat.name;
         } else {
-          // If not in user categories, it's a static category name reference
           itemCatName = item.categoryId; 
         }
 
@@ -147,8 +158,10 @@ class _CreateItemScreenState extends State<CreateItemScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final isEditing = widget.existingItem != null;
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Add Item')),
+      appBar: AppBar(title: Text(isEditing ? 'Edit Item' : 'Add Item')),
       body: _isLoading 
         ? const Center(child: CircularProgressIndicator())
         : Padding(
@@ -190,7 +203,7 @@ class _CreateItemScreenState extends State<CreateItemScreen> {
                   width: double.infinity,
                   child: ElevatedButton(
                     onPressed: _saveItem,
-                    child: const Text('Save Item'),
+                    child: Text(isEditing ? 'Save Changes' : 'Save Item'),
                   ),
                 ),
               ],

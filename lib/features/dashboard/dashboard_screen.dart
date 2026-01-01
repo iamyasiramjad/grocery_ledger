@@ -58,6 +58,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
               );
             },
           ),
+          IconButton(
+            icon: const Icon(Icons.inventory_2_outlined),
+            tooltip: 'Manage Items',
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => const ManageItemsScreen()),
+              );
+            },
+          ),
         ],
       ),
       body: lists.isEmpty

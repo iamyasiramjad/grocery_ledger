@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import '../../../core/utils/static_items.dart';
@@ -43,6 +44,14 @@ class _GroceryListWorkspaceScreenState
   bool _isEditingName = false;
   /// Focus node for the name editing text field.
   final FocusNode _nameFocusNode = FocusNode();
+  
+  /// UI State for the "Saved" indicator
+  bool _showSavedIndicator = false;
+  Timer? _savedTimer;
+
+  /// Controllers for input fields to prevent focus loss during auto-save
+  final TextEditingController _adjustmentController = TextEditingController();
+  final Map<ListEntry, (TextEditingController unit, TextEditingController total)> _entryControllers = {};
 
   late Box<HiveGroceryList> _groceryListBox;
 
@@ -65,6 +74,12 @@ class _GroceryListWorkspaceScreenState
   @override
   void dispose() {
     _nameFocusNode.dispose();
+    _savedTimer?.cancel();
+    _adjustmentController.dispose();
+    for (final controllers in _entryControllers.values) {
+      controllers.$1.dispose();
+      controllers.$2.dispose();
+    }
     super.dispose();
   }
 
@@ -86,16 +101,30 @@ class _GroceryListWorkspaceScreenState
     _entries.clear();
 
     for (final hiveEntry in list.entries) {
-      _entries.add(
-        ListEntry(
-          item: StaticItem(
-            hiveEntry.itemName,
-            hiveEntry.category,
-          ),
-          quantity: hiveEntry.quantity,
-          unitPrice: hiveEntry.unitPrice,
-          totalPrice: hiveEntry.totalPrice,
+      final entry = ListEntry(
+        item: StaticItem(
+          hiveEntry.itemName,
+          hiveEntry.category,
         ),
+        quantity: hiveEntry.quantity,
+        unitPrice: hiveEntry.unitPrice,
+        totalPrice: hiveEntry.totalPrice,
+      );
+      _entries.add(entry);
+      _initControllersForEntry(entry);
+    }
+    
+    _adjustmentController.text = _adjustment == 0 ? '' : _adjustment.toStringAsFixed(0);
+  }
+
+  void _initControllersForEntry(ListEntry entry) {
+    if (!_entryControllers.containsKey(entry)) {
+      final unitText = entry.unitPrice != null ? entry.unitPrice!.toStringAsFixed(0) : '';
+      final totalText = entry.hasPrice ? entry.calculatedTotal.toStringAsFixed(0) : '';
+
+      _entryControllers[entry] = (
+        TextEditingController(text: unitText),
+        TextEditingController(text: totalText),
       );
     }
   }
@@ -142,12 +171,25 @@ class _GroceryListWorkspaceScreenState
       // Update existing record
       await _groceryListBox.put(_currentKey, hiveList);
     } else {
-      // New record - let Hive auto-increment
+      // New record - create immediately in Hive to ensure it exists
       final newKey = await _groceryListBox.add(hiveList);
       setState(() {
         _currentKey = newKey;
       });
     }
+
+    // Update the "Saved" indicator with a temporary appearance
+    _savedTimer?.cancel();
+    setState(() {
+      _showSavedIndicator = true;
+    });
+    _savedTimer = Timer(const Duration(seconds: 2), () {
+      if (mounted) {
+        setState(() {
+          _showSavedIndicator = false;
+        });
+      }
+    });
   }
 
 
@@ -174,6 +216,27 @@ class _GroceryListWorkspaceScreenState
                 onTap: _toggleEditName,
                 child: Text(_listName),
               ),
+        actions: [
+          AnimatedOpacity(
+            opacity: _showSavedIndicator ? 1.0 : 0.0,
+            duration: const Duration(milliseconds: 300),
+            child: const Padding(
+              padding: EdgeInsets.only(right: 16),
+              child: Center(
+                child: Row(
+                  children: [
+                    Icon(Icons.check_circle_outline, size: 18, color: Colors.green),
+                    SizedBox(width: 4),
+                    Text(
+                      'Saved',
+                      style: TextStyle(color: Colors.green, fontWeight: FontWeight.w500),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -300,7 +363,9 @@ class _GroceryListWorkspaceScreenState
                     final exists =
                         _entries.any((e) => e.item.name == item.name);
                     if (!exists) {
-                      _entries.add(ListEntry(item: item));
+                      final newEntry = ListEntry(item: item);
+                      _entries.add(newEntry);
+                      _initControllersForEntry(newEntry);
                     }
                   }
                 });
@@ -320,9 +385,23 @@ class _GroceryListWorkspaceScreenState
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              entry.item.name,
-              style: const TextStyle(fontWeight: FontWeight.bold),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    entry.item.name,
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                  onPressed: () {
+                    _updateState(() {
+                      _entries.remove(entry);
+                    });
+                  },
+                ),
+              ],
             ),
             const SizedBox(height: 8),
             Row(
@@ -332,14 +411,6 @@ class _GroceryListWorkspaceScreenState
                 _buildPriceInput(entry),
               ],
             ),
-            if (entry.hasPrice)
-              Padding(
-                padding: const EdgeInsets.only(top: 8),
-                child: Text(
-                  'Total: Rs. ${entry.calculatedTotal.toStringAsFixed(0)}',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
           ],
         ),
       ),
@@ -352,24 +423,46 @@ class _GroceryListWorkspaceScreenState
         IconButton(
           icon: const Icon(Icons.remove),
           onPressed: entry.quantity > 1
-              ? () => _updateState(() => entry.quantity--)
+              ? () {
+                  _updateState(() {
+                    entry.quantity--;
+                    // Update total controller if unit price exists
+                    if (entry.unitPrice != null) {
+                      _entryControllers[entry]?.$2.text = 
+                          entry.calculatedTotal.toStringAsFixed(0);
+                    }
+                  });
+                }
               : null,
         ),
         Text(entry.quantity.toString()),
         IconButton(
           icon: const Icon(Icons.add),
-          onPressed: () => _updateState(() => entry.quantity++),
+          onPressed: () {
+            _updateState(() {
+              entry.quantity++;
+              // Update total controller if unit price exists
+              if (entry.unitPrice != null) {
+                _entryControllers[entry]?.$2.text = 
+                    entry.calculatedTotal.toStringAsFixed(0);
+              }
+            });
+          },
         ),
       ],
     );
   }
 
   Widget _buildPriceInput(ListEntry entry) {
+    _initControllersForEntry(entry);
+    final controllers = _entryControllers[entry]!;
+
     return Row(
       children: [
         SizedBox(
           width: 90,
-          child: TextField(
+          child: TextFormField(
+            controller: controllers.$1,
             keyboardType: TextInputType.number,
             decoration: const InputDecoration(
               labelText: 'Unit Rs.',
@@ -379,11 +472,13 @@ class _GroceryListWorkspaceScreenState
             onChanged: (value) {
               final price = double.tryParse(value);
               _updateState(() {
+                entry.unitPrice = price;
                 if (price != null) {
-                  entry.unitPrice = price;
                   entry.totalPrice = null;
+                  // Automatically update the "Total Rs." field
+                  controllers.$2.text = entry.calculatedTotal.toStringAsFixed(0);
                 } else {
-                  entry.unitPrice = null;
+                  controllers.$2.clear();
                 }
               });
             },
@@ -392,7 +487,8 @@ class _GroceryListWorkspaceScreenState
         const SizedBox(width: 8),
         SizedBox(
           width: 90,
-          child: TextField(
+          child: TextFormField(
+            controller: controllers.$2,
             keyboardType: TextInputType.number,
             decoration: const InputDecoration(
               labelText: 'Total Rs.',
@@ -402,11 +498,11 @@ class _GroceryListWorkspaceScreenState
             onChanged: (value) {
               final price = double.tryParse(value);
               _updateState(() {
+                entry.totalPrice = price;
                 if (price != null) {
-                  entry.totalPrice = price;
                   entry.unitPrice = null;
-                } else {
-                  entry.totalPrice = null;
+                  // Clear "Unit Rs." if manual total is entered
+                  controllers.$1.clear();
                 }
               });
             },
@@ -443,7 +539,8 @@ class _GroceryListWorkspaceScreenState
               const Expanded(child: Text('Adjustment')),
               SizedBox(
                 width: 120,
-                child: TextField(
+                child: TextFormField(
+                  controller: _adjustmentController,
                   keyboardType: TextInputType.number,
                   decoration: const InputDecoration(
                     hintText: '-100 for discount',
