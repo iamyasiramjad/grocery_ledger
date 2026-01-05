@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
+import '../../core/auth/auth_service.dart';
 
 import '../grocery_list/storage/hive_grocery_list.dart';
 import '../grocery_list/workspace/grocery_list_workspace_screen.dart';
@@ -66,6 +67,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 context,
                 MaterialPageRoute(builder: (_) => const ManageItemsScreen()),
               );
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.logout),
+            tooltip: 'Sign Out',
+            onPressed: () async {
+              await AuthService.instance.signOut();
             },
           ),
         ],

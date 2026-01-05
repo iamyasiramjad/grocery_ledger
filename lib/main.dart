@@ -1,18 +1,31 @@
+import 'core/auth/auth_gate.dart';
+import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'app.dart';
 import 'core/storage/hive_app_settings.dart';
-import 'features/grocery_list/storage/hive_grocery_list.dart';
-import 'features/grocery_list/storage/hive_list_entry.dart';
 import 'features/dashboard/dashboard_screen.dart';
 import 'features/onboarding/onboarding_screen.dart';
+import 'features/grocery_list/storage/hive_grocery_list.dart';
+import 'features/grocery_list/storage/hive_list_entry.dart';
 import 'features/categories/storage/hive_user_category.dart';
 import 'features/items/storage/hive_user_item.dart';
-import 'package:flutter/material.dart';
-import 'app.dart';
 
-void main() async {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // ✅ SUPABASE INIT (IDENTITY FIRST)
+  // ─────────────────────────────────────────────────────────────────────────
+  await Supabase.initialize(
+    url: 'https://fqueulhpoaximhsyvgyg.supabase.co',
+    anonKey: 'sb_publishable_oHHElcX7s8y_L8rZiTAo7g_3FONBfj0',
+  );
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // ✅ HIVE INIT (LOCAL STORAGE)
+  // ─────────────────────────────────────────────────────────────────────────
   await Hive.initFlutter();
 
   // ✅ REGISTER ADAPTERS (CRITICAL)
@@ -33,22 +46,23 @@ void main() async {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // APP LAUNCH ROUTING
-  // ─────────────────────────────────────────────────────────────────────────
-  // Open the app settings box and determine which screen to show first.
-  // This decision is made BEFORE runApp() to prevent any flicker.
+  // APP LAUNCH ROUTING (ONBOARDING ONLY FOR NOW)
   // ─────────────────────────────────────────────────────────────────────────
 
   final settingsBox = await Hive.openBox<HiveAppSettings>('app_settings');
-
-  // Read settings record; if none exists, treat as first launch
   final settings = settingsBox.get('settings') ?? HiveAppSettings();
 
-  // Determine initial screen based on onboarding completion status
   final Widget initialScreen = settings.hasCompletedOnboarding
       ? const DashboardScreen()
       : OnboardingScreen(settingsBox: settingsBox);
 
-  runApp(GroceryLedgerApp(home: initialScreen));
-}
+  runApp(
+    GroceryLedgerApp(
+      home: AuthGate(
+        authenticated: initialScreen,
+      ),
+    ),
+  );
 
+
+}
