@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'core/auth/app_lock_gate.dart';
 
 /// Root application widget for Grocery Ledger.
 ///
@@ -12,14 +13,16 @@ class GroceryLedgerApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Grocery Ledger',
-      debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        useMaterial3: true,
-        colorSchemeSeed: Colors.green,
+    return AppLockGate(
+      child: MaterialApp(
+        title: 'Grocery Ledger',
+        debugShowCheckedModeBanner: false,
+        theme: ThemeData(
+          useMaterial3: true,
+          colorSchemeSeed: Colors.green,
+        ),
+        home: home,
       ),
-      home: home,
     );
   }
 }

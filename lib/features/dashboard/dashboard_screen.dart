@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
+import '../../core/storage/hive_app_settings.dart';
 import '../../core/auth/auth_service.dart';
 
 import '../grocery_list/storage/hive_grocery_list.dart';
@@ -29,6 +30,47 @@ class _DashboardScreenState extends State<DashboardScreen> {
     setState(() {});
   }
 
+  void _showSettings(BuildContext context) async {
+    final settingsBox = Hive.box<HiveAppSettings>('app_settings');
+    final settings = settingsBox.get('settings') ?? HiveAppSettings();
+
+    showModalBottomSheet(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Container(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Settings',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 16),
+                  SwitchListTile(
+                    title: const Text('Enable App Lock'),
+                    subtitle: const Text('Use fingerprint or face ID to protect the app'),
+                    value: settings.isBiometricLockEnabled,
+                    onChanged: (bool value) {
+                      setModalState(() {
+                        settings.isBiometricLockEnabled = value;
+                        settings.save();
+                      });
+                    },
+                  ),
+                  const SizedBox(height: 24),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     // ⏳ Loading
@@ -49,6 +91,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
       appBar: AppBar(
         title: const Text('My Grocery Lists'),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            tooltip: 'Settings',
+            onPressed: () => _showSettings(context),
+          ),
           IconButton(
             icon: const Icon(Icons.category),
             tooltip: 'Manage Categories',

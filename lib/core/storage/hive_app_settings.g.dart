@@ -18,15 +18,18 @@ class HiveAppSettingsAdapter extends TypeAdapter<HiveAppSettings> {
     };
     return HiveAppSettings(
       hasCompletedOnboarding: fields[0] == null ? false : fields[0] as bool,
+      isBiometricLockEnabled: fields[1] == null ? false : fields[1] as bool,
     );
   }
 
   @override
   void write(BinaryWriter writer, HiveAppSettings obj) {
     writer
-      ..writeByte(1)
+      ..writeByte(2)
       ..writeByte(0)
-      ..write(obj.hasCompletedOnboarding);
+      ..write(obj.hasCompletedOnboarding)
+      ..writeByte(1)
+      ..write(obj.isBiometricLockEnabled);
   }
 
   @override

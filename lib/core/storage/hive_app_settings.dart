@@ -19,7 +19,12 @@ class HiveAppSettings extends HiveObject {
   @HiveField(0, defaultValue: false)
   bool hasCompletedOnboarding;
 
+  /// Whether biometric lock is enabled for the app.
+  @HiveField(1, defaultValue: false)
+  bool isBiometricLockEnabled;
+
   HiveAppSettings({
     this.hasCompletedOnboarding = false,
+    this.isBiometricLockEnabled = false,
   });
 }
