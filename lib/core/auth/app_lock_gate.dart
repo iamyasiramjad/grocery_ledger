@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
-import '../storage/hive_app_settings.dart';
+import 'package:grocery_ledger/core/storage/hive_app_settings.dart';
+import 'package:grocery_ledger/core/auth/auth_service.dart';
 import 'biometric_service.dart';
 
 class AppLockGate extends StatefulWidget {
@@ -24,6 +25,8 @@ class _AppLockGateState extends State<AppLockGate> with WidgetsBindingObserver {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _settingsBox = Hive.box<HiveAppSettings>('app_settings');
+    
+    // Initial lock check
     _checkInitialLock();
   }
 
@@ -35,6 +38,7 @@ class _AppLockGateState extends State<AppLockGate> with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Re-lock when app moves to background or is inactive
     if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
       _lockApp();
     } else if (state == AppLifecycleState.resumed) {
@@ -42,9 +46,17 @@ class _AppLockGateState extends State<AppLockGate> with WidgetsBindingObserver {
     }
   }
 
-  void _lockApp() {
+  bool get _shouldLock {
+    // Only lock if user is authenticated with Supabase and biometric is enabled
     final settings = _settingsBox.get('settings');
-    if (settings?.isBiometricLockEnabled ?? false) {
+    final isEnabled = settings?.isBiometricLockEnabled ?? false;
+    final isLoggedIn = AuthService.instance.isLoggedIn;
+    
+    return isEnabled && isLoggedIn;
+  }
+
+  void _lockApp() {
+    if (_shouldLock) {
       setState(() {
         _isLocked = true;
       });
@@ -52,9 +64,14 @@ class _AppLockGateState extends State<AppLockGate> with WidgetsBindingObserver {
   }
 
   void _checkInitialLock() {
-    _lockApp();
-    if (_isLocked) {
-      _checkLockStatus();
+    if (_shouldLock) {
+      setState(() {
+        _isLocked = true;
+      });
+      // Delay to ensure the UI is ready before showing native dialog
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _checkLockStatus();
+      });
     }
   }
 
@@ -71,17 +88,21 @@ class _AppLockGateState extends State<AppLockGate> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
-    if (_isLocked) {
-      return MaterialApp(
-        debugShowCheckedModeBanner: false,
-        theme: ThemeData(
-          useMaterial3: true,
-          colorScheme: ColorScheme.fromSeed(seedColor: Colors.green),
-        ),
-        home: _LockScreen(onUnlock: _checkLockStatus),
-      );
-    }
-    return widget.child;
+    return Directionality(
+      textDirection: TextDirection.ltr,
+      child: Stack(
+        children: [
+          // The actual app (Navigator)
+          widget.child,
+
+          // The Lock Screen Overlay
+          if (_isLocked)
+            Positioned.fill(
+              child: _LockScreen(onUnlock: _checkLockStatus),
+            ),
+        ],
+      ),
+    );
   }
 }
 
@@ -92,10 +113,11 @@ class _LockScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: Container(
-        width: double.infinity,
+    return Material(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 24),
         decoration: BoxDecoration(
+          color: Colors.white,
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
@@ -127,6 +149,7 @@ class _LockScreen extends StatelessWidget {
                 fontSize: 28,
                 fontWeight: FontWeight.bold,
                 letterSpacing: -0.5,
+                color: Colors.black,
               ),
             ),
             const SizedBox(height: 8),
@@ -138,21 +161,24 @@ class _LockScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 48),
-            ElevatedButton.icon(
-              onPressed: onUnlock,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.green.shade700,
-                foregroundColor: Colors.white,
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: onUnlock,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green.shade700,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 18),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  elevation: 0,
                 ),
-                elevation: 0,
-              ),
-              icon: const Icon(Icons.fingerprint),
-              label: const Text(
-                'Unlock App',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                icon: const Icon(Icons.fingerprint),
+                label: const Text(
+                  'Unlock App',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
               ),
             ),
           ],
